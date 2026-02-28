@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>⚡ Pro Arcade Tic Tac Toe</title>
+
+<style>
+body{
+    text-align:center;
+    font-family:Arial;
+    background:black;
+    color:white;
+}
+
+h1{
+    color:#00f7ff;
+    text-shadow:0 0 15px #00f7ff;
+}
+
+.board{
+    display:grid;
+    grid-template-columns:repeat(3,120px);
+    gap:10px;
+    justify-content:center;
+    margin-top:30px;
+}
+
+.cell{
+    width:120px;
+    height:120px;
+    font-size:50px;
+    font-weight:bold;
+    border:2px solid #00f7ff;
+    background:black;
+    color:#00f7ff;
+    cursor:pointer;
+    transition:0.3s;
+    box-shadow:0 0 10px #00f7ff;
+}
+
+.cell:hover{
+    transform:scale(1.1);
+    box-shadow:0 0 25px #00f7ff;
+}
+
+.win{
+    background:#00f7ff;
+    color:black;
+}
+
+button,select{
+    margin-top:15px;
+    padding:8px 15px;
+    background:#00f7ff;
+    border:none;
+    cursor:pointer;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>⚡ PRO ARCADE TIC TAC TOE</h1>
+
+<select id="mode">
+<option value="ai">Vs Computer 🤖</option>
+<option value="2p">2 Player 👥</option>
+</select>
+
+<div class="board" id="board"></div>
+
+<h2 id="status"></h2>
+
+<button onclick="restartGame()">Restart 🔄</button>
+
+<script>
+
+// ======= PRO SOUND SYSTEM =======
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+document.body.addEventListener("click",()=>{
+    if(audioCtx.state==="suspended") audioCtx.resume();
+},{once:true});
+
+function tone(freq,duration=0.2){
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.frequency.value=freq;
+    osc.type="sawtooth";
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(0.4,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
+    osc.start();
+    osc.stop(audioCtx.currentTime+duration);
+}
+
+function clickSound(){ tone(600,0.1); }
+function winSound(){
+    tone(800,0.15);
+    setTimeout(()=>tone(1000,0.15),150);
+    setTimeout(()=>tone(1200,0.2),300);
+}
+function drawSound(){ tone(300,0.4); }
+function restartSound(){ tone(700,0.2); }
+
+// ======= GAME SYSTEM =======
+const boardEl=document.getElementById("board");
+const statusEl=document.getElementById("status");
+const modeSelect=document.getElementById("mode");
+
+let board=["","","","","","","","",""];
+let current="X";
+let gameOver=false;
+
+const wins=[
+[0,1,2],[3,4,5],[6,7,8],
+[0,3,6],[1,4,7],[2,5,8],
+[0,4,8],[2,4,6]
+];
+
+function createBoard(){
+    boardEl.innerHTML="";
+    board.forEach((cell,i)=>{
+        const btn=document.createElement("button");
+        btn.className="cell";
+        btn.textContent=cell;
+        btn.onclick=()=>move(i);
+        boardEl.appendChild(btn);
+    });
+    statusEl.textContent="Turn: "+current;
+}
+
+function move(i){
+    if(board[i]!==""||gameOver) return;
+
+    board[i]=current;
+    clickSound();
+    createBoard();
+
+    if(checkWin(current)) return;
+
+    current = current==="X"?"O":"X";
+
+    if(modeSelect.value==="ai" && current==="O"){
+        setTimeout(aiMove,400);
+    }
+}
+
+function aiMove(){
+    let bestMove = minimax(board,"O").index;
+    board[bestMove]="O";
+    clickSound();
+    createBoard();
+    if(checkWin("O")) return;
+    current="X";
+}
+
+function checkWin(player){
+    for(let p of wins){
+        let[a,b,c]=p;
+        if(board[a]===player && board[b]===player && board[c]===player){
+            gameOver=true;
+            highlight(p);
+            winSound();
+            statusEl.textContent=player+" Wins! 🔥";
+            return true;
+        }
+    }
+
+    if(!board.includes("")){
+        gameOver=true;
+        drawSound();
+        statusEl.textContent="Draw 🤝";
+        return true;
+    }
+    return false;
+}
+
+function highlight(p){
+    const cells=document.querySelectorAll(".cell");
+    p.forEach(i=>cells[i].classList.add("win"));
+}
+
+function restartGame(){
+    restartSound();
+    board=["","","","","","","","",""];
+    current="X";
+    gameOver=false;
+    createBoard();
+}
+
+// ======= SMART AI (UNBEATABLE) =======
+function minimax(newBoard,player){
+    let avail=newBoard.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+
+    if(checkStaticWin(newBoard,"X")) return {score:-10};
+    if(checkStaticWin(newBoard,"O")) return {score:10};
+    if(avail.length===0) return {score:0};
+
+    let moves=[];
+    for(let i=0;i<avail.length;i++){
+        let move={};
+        move.index=avail[i];
+        newBoard[avail[i]]=player;
+
+        let result=minimax(newBoard,player==="O"?"X":"O");
+        move.score=result.score;
+
+        newBoard[avail[i]]="";
+        moves.push(move);
+    }
+
+    let bestMove;
+    if(player==="O"){
+        let bestScore=-10000;
+        for(let i=0;i<moves.length;i++){
+            if(moves[i].score>bestScore){
+                bestScore=moves[i].score;
+                bestMove=i;
+            }
+        }
+    }else{
+        let bestScore=10000;
+        for(let i=0;i<moves.length;i++){
+            if(moves[i].score<bestScore){
+                bestScore=moves[i].score;
+                bestMove=i;
+            }
+        }
+    }
+
+    return moves[bestMove];
+}
+
+function checkStaticWin(b,p){
+    return wins.some(([a,b1,c])=>b[a]===p&&b[b1]===p&&b[c]===p);
+}
+
+createBoard();
+
+</script>
+
+</body>
+</html>
